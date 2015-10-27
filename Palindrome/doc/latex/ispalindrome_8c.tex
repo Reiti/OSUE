@@ -1,0 +1,128 @@
+\hypertarget{ispalindrome_8c}{}\section{/home/reiti/coding/\+O\+S\+U\+E/\+Palindrome/src/ispalindrome.c File Reference}
+\label{ispalindrome_8c}\index{/home/reiti/coding/\+O\+S\+U\+E/\+Palindrome/src/ispalindrome.\+c@{/home/reiti/coding/\+O\+S\+U\+E/\+Palindrome/src/ispalindrome.\+c}}
+
+
+Check if a given String is a palindrome.  
+
+
+{\ttfamily \#include $<$stdio.\+h$>$}\\*
+{\ttfamily \#include $<$string.\+h$>$}\\*
+{\ttfamily \#include $<$unistd.\+h$>$}\\*
+{\ttfamily \#include \char`\"{}ispalindrome.\+h\char`\"{}}\\*
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\hypertarget{ispalindrome_8c_a7a9a231e30b47bc0345749c8bd1e5077}{}\#define {\bfseries M\+A\+X\+\_\+\+L\+E\+N\+G\+T\+H}~40\label{ispalindrome_8c_a7a9a231e30b47bc0345749c8bd1e5077}
+
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \hyperlink{ispalindrome_8c_a3c04138a5bfe5d72780bb7e82a18e627}{main} (int argc, char $\ast$$\ast$argv)
+\item 
+void \hyperlink{ispalindrome_8c_aa8bb18887338f590f2c6628827162468}{remove\+New\+Line} (char $\ast$string)
+\begin{DoxyCompactList}\small\item\em Removes he newline character from a string. \end{DoxyCompactList}\item 
+void \hyperlink{ispalindrome_8c_ad927f7a1f0145cb05916f9462341143b}{to\+Lower} (char $\ast$string)
+\begin{DoxyCompactList}\small\item\em Turns a string into lower case. \end{DoxyCompactList}\item 
+void \hyperlink{ispalindrome_8c_a7911d8abfab6e6187332f2e796702db4}{remove\+Spaces} (char $\ast$string)
+\begin{DoxyCompactList}\small\item\em Removes Spaces from a string. \end{DoxyCompactList}\item 
+int \hyperlink{ispalindrome_8c_adaa3758dd07a37622801b9bbe5b49017}{palindrome} (char $\ast$string)
+\begin{DoxyCompactList}\small\item\em Checks if a given string is a palindrome. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Check if a given String is a palindrome. 
+
+Module\+: Palindrome
+
+\begin{DoxyAuthor}{Author}
+Michael Reitgruber
+\end{DoxyAuthor}
+Ceck if a given String is a palindrome. Possible command line options\+: -\/i to ignore case, -\/s to ignore spaces. \begin{DoxyDate}{Date}
+12.\+10.\+2015 
+\end{DoxyDate}
+
+
+\subsection{Function Documentation}
+\hypertarget{ispalindrome_8c_a3c04138a5bfe5d72780bb7e82a18e627}{}\index{ispalindrome.\+c@{ispalindrome.\+c}!main@{main}}
+\index{main@{main}!ispalindrome.\+c@{ispalindrome.\+c}}
+\subsubsection[{main(int argc, char $\ast$$\ast$argv)}]{\setlength{\rightskip}{0pt plus 5cm}int main (
+\begin{DoxyParamCaption}
+\item[{int}]{argc, }
+\item[{char $\ast$$\ast$}]{argv}
+\end{DoxyParamCaption}
+)}\label{ispalindrome_8c_a3c04138a5bfe5d72780bb7e82a18e627}
+The main entry point of the program 
+\begin{DoxyParams}{Parameters}
+{\em argc} & The number of command-\/line parameters \\
+\hline
+{\em argv} & Array of command-\/line parameters \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+The exit code. 0 on sucess, no-\/zero on failure 
+\end{DoxyReturn}
+\hypertarget{ispalindrome_8c_adaa3758dd07a37622801b9bbe5b49017}{}\index{ispalindrome.\+c@{ispalindrome.\+c}!palindrome@{palindrome}}
+\index{palindrome@{palindrome}!ispalindrome.\+c@{ispalindrome.\+c}}
+\subsubsection[{palindrome(char $\ast$string)}]{\setlength{\rightskip}{0pt plus 5cm}int palindrome (
+\begin{DoxyParamCaption}
+\item[{char $\ast$}]{string}
+\end{DoxyParamCaption}
+)}\label{ispalindrome_8c_adaa3758dd07a37622801b9bbe5b49017}
+
+
+Checks if a given string is a palindrome. 
+
+Checks if the string is a palindrome by iterating from both sides and checking for equality 
+\begin{DoxyParams}{Parameters}
+{\em string} & The string to be checked \\
+\hline
+\end{DoxyParams}
+\hypertarget{ispalindrome_8c_aa8bb18887338f590f2c6628827162468}{}\index{ispalindrome.\+c@{ispalindrome.\+c}!remove\+New\+Line@{remove\+New\+Line}}
+\index{remove\+New\+Line@{remove\+New\+Line}!ispalindrome.\+c@{ispalindrome.\+c}}
+\subsubsection[{remove\+New\+Line(char $\ast$string)}]{\setlength{\rightskip}{0pt plus 5cm}void remove\+New\+Line (
+\begin{DoxyParamCaption}
+\item[{char $\ast$}]{string}
+\end{DoxyParamCaption}
+)}\label{ispalindrome_8c_aa8bb18887338f590f2c6628827162468}
+
+
+Removes he newline character from a string. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em string} & The string to remove the newline from \\
+\hline
+\end{DoxyParams}
+\hypertarget{ispalindrome_8c_a7911d8abfab6e6187332f2e796702db4}{}\index{ispalindrome.\+c@{ispalindrome.\+c}!remove\+Spaces@{remove\+Spaces}}
+\index{remove\+Spaces@{remove\+Spaces}!ispalindrome.\+c@{ispalindrome.\+c}}
+\subsubsection[{remove\+Spaces(char $\ast$string)}]{\setlength{\rightskip}{0pt plus 5cm}void remove\+Spaces (
+\begin{DoxyParamCaption}
+\item[{char $\ast$}]{string}
+\end{DoxyParamCaption}
+)}\label{ispalindrome_8c_a7911d8abfab6e6187332f2e796702db4}
+
+
+Removes Spaces from a string. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em string} & The string to remove the spaces from \\
+\hline
+\end{DoxyParams}
+\hypertarget{ispalindrome_8c_ad927f7a1f0145cb05916f9462341143b}{}\index{ispalindrome.\+c@{ispalindrome.\+c}!to\+Lower@{to\+Lower}}
+\index{to\+Lower@{to\+Lower}!ispalindrome.\+c@{ispalindrome.\+c}}
+\subsubsection[{to\+Lower(char $\ast$string)}]{\setlength{\rightskip}{0pt plus 5cm}void to\+Lower (
+\begin{DoxyParamCaption}
+\item[{char $\ast$}]{string}
+\end{DoxyParamCaption}
+)}\label{ispalindrome_8c_ad927f7a1f0145cb05916f9462341143b}
+
+
+Turns a string into lower case. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em string} & The string to be turned into lower case \\
+\hline
+\end{DoxyParams}
