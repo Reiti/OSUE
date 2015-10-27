@@ -1,5 +1,5 @@
 # Object files
-*.o
+**/*.o
 *.ko
 *.obj
 *.elf
@@ -27,6 +27,8 @@
 *.i*86
 *.x86_64
 *.hex
-
+**/*.sh
+**/*.pdf
+**/*.tar
 # Debug files
 *.dSYM/
