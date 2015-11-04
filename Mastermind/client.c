@@ -197,6 +197,9 @@ void parse_args(int argc, char *argv[], struct opts* arg)
     }
 
    arg->addr = argv[1];
+   if(strcmp(arg->addr, "localhost") == 0) {
+       arg->addr = "127.0.0.1";
+   }
 }
    
 
