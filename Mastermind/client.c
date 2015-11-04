@@ -228,11 +228,10 @@ void parse_args(int argc, char *argv[], struct opts* arg)
     if(arg->portno <1 || arg->portno > 65535) {
         bail_out(EXIT_FAILURE, "Port is not a valid TCP/IP port");
     }
-
-   arg->addr = argv[1];
-   if(strcmp(arg->addr, "localhost") == 0) {
-       arg->addr = "127.0.0.1";
+   if(strcmp(argv[1],"localhost") == 0) {
+       argv[1] = "127.0.0.1";
    }
+   arg->addr = argv[1];
 }
    
 

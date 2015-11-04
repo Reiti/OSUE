@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include "ispalindrome.h"
 
+//Max length of string 
 #define MAX_LENGTH 40
 
 /**
@@ -22,7 +23,8 @@
 */
 int main(int argc, char **argv)
 {
-    char input[MAX_LENGTH];
+    //+2 for linebreak and NULL terminator
+    char input[MAX_LENGTH+2];
     int iSet = 0;
     int sSet = 0;
     int c;
@@ -41,12 +43,12 @@ int main(int argc, char **argv)
         }
     }
     do{
-        (void)fgets(input, MAX_LENGTH+1, stdin);
-        if(strlen(input)>=40) {
+        (void)fgets(input, MAX_LENGTH+2, stdin);
+        removeNewLine(input);
+        if(strlen(input)>MAX_LENGTH) {
             (void)fprintf(stderr, "ispalindrome: Eingabe zu lang, max %d Zeichen!", MAX_LENGTH);
             return 1;
         }
-        removeNewLine(input);
         (void)printf("%s ist ", input);
         if(iSet){
             toLower(input);
