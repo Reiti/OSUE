@@ -28,23 +28,65 @@
 #define SHIFT_WIDTH (3)
 #define PARITY_ERROR_SHIFT (6)
 #define GAME_LOST_SHIFT (7)
+//Struct containing the options passed to the program
 struct opts {
     long int portno;
     char *addr;
 };
 
+//Enum for managing the colors
 enum color {beige = 0, darkblue, green, orange, red, black, violet, white};
 
+//name of the program
 static const char *progname = "client";
 
+/**
+ * Credit to the OSUE-Team
+ * @brief Parse command line options
+ * @param argc The argument counter
+ * @param argv The argument vector
+ * @param options Struct where parsed arguments are stored
+ *
+ */
 void parse_args(int argc, char *argv[], struct opts* arg);
+
+/**
+ * Credit to the OSUE-Team
+ * @brief terminate program on program error
+ * @param exitcode exit code
+ * @param fmt format string
+ */
 static void bail_out(int exitcode, const char *fmt, ...);
+
+/**
+ * @brief free allocated resources
+ */
 static void free_resources(void);
+
+/**
+ * @brief Sends the next guess to the mastermind server
+ * @param guess An integer array containing the next guess
+ */
 void send_guess(int *guess);
+
+/**
+ * @brief Receives the answer from the server
+ * @param fd File descriptor of the socket
+ * @param buff Buffer which will hold the received data
+ * @return The pointer to the buffer if data was received, NULL else
+ * */
 static uint8_t *receive_answer(int fd, uint8_t *buff);
 static int sockfd = -1;
 
 
+/**
+ *@brief Main entry point of the program, Game logic
+ *@detail This method implements the connection to the server, as well as the main game logic (Playing out the strategy, sending and receiving data)
+ * @param argc Number of arguments passed to the program
+ * @param argv Array containing the passed arguments
+ * @return EXIT_SUCCESS when game is won, EXIT_FAILURE on error, 2 on parity error, 3 if game is lost, 4 if game is lost and parity error occured
+ * */
+ 
 int main(int argc, char *argv[]) 
 {
     int initial_guess[PINS] = {beige, beige, darkblue, darkblue, green}; 
@@ -113,15 +155,6 @@ static uint8_t *receive_answer(int fd, uint8_t *buff)
         return NULL;
     }
     return buff;
-}
-    
-void print_bits(uint16_t guess)
-{
-    for(int i=0; i<sizeof(guess)*8; i++) {
-	printf("%d", guess&0x1);
-        guess >>= 1;
-    }
-    printf("\n");
 }
 
 void send_guess(int *guess)

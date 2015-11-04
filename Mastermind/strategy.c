@@ -15,11 +15,19 @@
 
 enum color {beige = 0, darkblue, green, orange, red, black, violet, white};
 
+//array containing all possible guesses
 static guess *all[SOLUTION_SIZE];
+
 static guess *current_guess;
 
 void copy_pattern(guess *a, guess *b);
 
+/**
+ * @brief Initialise necessary variables and setup Strategy
+ * @detail Populizes an array containing all possible combinations of colors, which will be used to determine the solution by eliminating invalid guesses
+ * @param start_guess An int array containing the initial guess to seed the next_guess function
+ * @return A pointer to the currently selected guess (directly after calling this method it will be equal to the initial guess)
+*/
 guess *init_strat(int start_guess[]) {
     current_guess = malloc(sizeof(guess));
     int first = 8*8*8*8;
@@ -44,6 +52,15 @@ guess *init_strat(int start_guess[]) {
     return current_guess;
 }
 
+/**
+ * @brief Fills one guess at the index idx with colors c1-5
+ * @param idx The index of the guess to fill
+ * @param c1 Color of first pin
+ * @param c2 Color of second pin
+ * @param c3 Color of third pin
+ * @param c4 Color of fourth pin
+ * @param c5 Color of fifth pin
+*/
 void fill(int idx, int c1, int c2, int c3, int c4, int c5) 
 {   
     all[idx] = malloc(sizeof(guess));
@@ -54,6 +71,13 @@ void fill(int idx, int c1, int c2, int c3, int c4, int c5)
     all[idx]->pattern[4] = c5;   
 }
 
+/*
+ *@brief plays two guesses against each other using the same method as the server (Credit to OSUE-Team)
+ *@detail This is used to determine which guesses to remove from the list. 
+ *@param a The guess that will emulate being the solution
+ *@param b The guess that will play against the "solution" (guess a)
+ *@param res An array containing the number of red pins(res[0]) and white pins(res[1])
+*/
 void play_against(guess *a, guess *b, int *res)
 {   int colors_left[COLORS];
     int red,white;
@@ -83,6 +107,9 @@ void play_against(guess *a, guess *b, int *res)
     res[1] = white;
 }
 
+/**
+ * @brief Copies the pattern from one guess to another
+*/
 void copy_pattern(guess *a, guess *b) 
 {
     for(int i=0; i<PINS; i++) {
@@ -90,6 +117,13 @@ void copy_pattern(guess *a, guess *b)
     }
 }
 
+/**
+ * @brief Returns the next guess to play against the server
+ * @detail First eliminates unwanted guesses via the eliminate function, then selects the first valid guess from the remaining
+ * @param red Number of red pins returned on last guess
+ * @param white Number of white pins returned on last guess
+ * @return The next guess to be played
+*/
 guess *next_guess(int red, int white)
 {
    eliminate(red, white);
@@ -102,8 +136,13 @@ guess *next_guess(int red, int white)
    return NULL; 
 }
 
-
-
+/**
+ * @brief Eliminates all invalid guesses from the global array
+ * @detail Plays the current guess against all remaining guesses. All guesses which do not return the same number of red an white pins as the server
+ *         can not be valid. 
+ * @param red Number of red pins returned on last guess
+ * @param white Number of white pins returned on last guess
+*/
 void eliminate(int red, int white) {
     static int buff[2];
     for(int i=0; i<SOLUTION_SIZE; i++) { 
@@ -118,6 +157,9 @@ void eliminate(int red, int white) {
 
 }
 
+/**
+ * @brief Used to free the remaining space allocated by the global array
+*/
 void free_all() {
     for(int i=0; i<SOLUTION_SIZE; i++) {
         free(all[i]);
