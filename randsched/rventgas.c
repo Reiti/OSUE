@@ -15,10 +15,10 @@ int main(int argc, char *argv[])
     srand(time(NULL));
     r = rand()%7;
     if(r != 6) {
-        (void)printf("STATUS OK");
+        (void)printf("STATUS OK\n");
         return EXIT_SUCCESS;
     }
-    (void)printf("PRESSURE TO HIGH - IMMEDIATE SHUTDOWN REQUIRED");
+    (void)printf("PRESSURE TO HIGH - IMMEDIATE SHUTDOWN REQUIRED\n");
     return EXIT_FAILURE;
 }
 

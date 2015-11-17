@@ -20,14 +20,16 @@
 
 /*Buffersize for pipe*/
 #define PIPE_BUF 1 
-
+#define EXIT_ERROR 13 
 /*program name*/
 static const char *program_name = "schedule";
 
 /*file descriptor for pipe*/
 static int fd[2];
+
 /*file descriptor for logfile*/
-static int file;
+static FILE *file;
+
 /**
   *Credit to OSUE team
   *@brief terminate program on program error
@@ -39,7 +41,7 @@ static void bail_out(int exitcode, const char *fmt, ...);
 /**
   *@brief Parses a given string to an integer
   *@param string The string to be parsed
-  @return The parsed integer, or -1 on failure
+  *@return The parsed integer, or -1 on failure
   */
 static int parse_int(char *string);
 
@@ -56,8 +58,9 @@ static void usage(void);
   *@param duration Length of the execution window in seconds
   *@param program The program to be executed
   *@param emergency The program to be executed in case program fails
+  *@return The return value of the emergency program
   **/
-static void schedule(int begin, int duration, char *program, char *emergency);
+static int schedule(int begin, int duration, char *program, char *emergency);
 
 int main(int argc, char *argv[])
 {
@@ -112,30 +115,52 @@ int main(int argc, char *argv[])
     if(pipe(fd) != 0) {
         bail_out(EXIT_FAILURE, "Error creating pipe");
     }
+
     int pid = fork();
-    if(pid == 0) {
-        schedule(begin, duration, program, emergency);
-        
-        return EXIT_SUCCESS;
-    }
-    else if(pid >0) {
-        int status;
-        char buffer[PIPE_BUF];
-        file = open(logfile, O_CREAT|O_RDWR|O_APPEND);
+    int status;
+    char buffer[PIPE_BUF];
+    int rval;
+
+    switch(pid) {
+    case -1:
+        bail_out(EXIT_FAILURE, "Error forking");
+        break;
+    case 0:
+        return schedule(begin, duration, program, emergency);
+    default:
+        file = fopen(logfile, "a+");
         (void) close(fd[1]); //close writing side of pipe
 
         while(read(fd[0], buffer, PIPE_BUF) > 0) {
            (void) write(fileno(stdout), buffer, PIPE_BUF);
-           (void) write(file, buffer, PIPE_BUF);
+           (void) write(fileno(file), buffer, PIPE_BUF);
+        }
+
+        wait(&status);
+
+        if(WIFEXITED(status)) {
+            rval = WEXITSTATUS(status);
+        }
+        else {
+            bail_out(EXIT_FAILURE, "Child process did not terminate normally");
+        }
+        
+        char *message;
+       
+        if(rval == EXIT_SUCCESS) {
+            message = "EMERGENCY SHUTDOWN SUCCESSFUL!";
+        } else if(rval == EXIT_FAILURE) {
+            message = "EMERGENCY SHUTDOWN FAILED!";
+        } else {
+            bail_out(EXIT_FAILURE, "Child did not terminate normally");
+        }
+        (void)printf(message);
+        if(fputs(message, file) == EOF) {
+            bail_out(EXIT_FAILURE, "Error writing to logfile");
         }
         close(fd[0]); //close reading side, because we are done
-        int i = wait(&status);
-
-        close(file);
+        fclose(file);
         return EXIT_SUCCESS;
-    } 
-    else {
-        bail_out(EXIT_FAILURE, "Error forking");
     }
 }
 
@@ -173,54 +198,63 @@ static int parse_int(char *string)
     return ret;
 }
 
-static void schedule(int begin, int duration, char *program, char *emergency)
+static int schedule(int begin, int duration, char *program, char *emergency)
 {
     srand(time(NULL));
     int r = begin + rand()%(duration+1);
-    int s = 0;
-    int childpipe[2];
+
+    int status;
+    int rval;
+
     (void) close(fd[0]); //close read side of pipe
-    if(pipe(childpipe) != 0) {
-        bail_out(EXIT_FAILURE, "Error creating pipe");
+  
+    while(rval != EXIT_FAILURE) {
+        sleep(r);
+        r = begin + rand()%(duration+1);
+        int pid = fork();
+        switch(pid) {
+        case -1: 
+            bail_out(EXIT_FAILURE, "Error forking");
+            break;
+        case 0:
+            if(dup2(fd[1], fileno(stdout)) == -1) {
+                bail_out(EXIT_FAILURE, "dup failed");
+            }
+            close(fd[1]);
+            if(execlp(program, program, NULL) == -1) {
+                bail_out(EXIT_FAILURE, "Executing %s failed", program);            
+            }
+            break;
+        default:
+            (void) wait(&status);
+            if(WIFEXITED(status)) {
+                rval = WEXITSTATUS(status);
+            }
+            else {
+                bail_out(EXIT_FAILURE, "Child did not terminate normally");
+            }
+            break;
+        }
     }
 
-    int pid = fork();
-
-    if(pid == 0) {
-        (void) close(childpipe[0]); //close read side of pipe
-        if(dup2(childpipe[1], fileno(stdout)) == -1) {
-            bail_out(EXIT_FAILURE, "dup failed");
-        }
-        if(execlp(program, program, NULL) == -1) {
-            bail_out(EXIT_FAILURE, "Executing %s failed", program);            
-        }
-    } 
-    else if(pid > 0) {
-        int status;
-        char buffer[PIPE_BUF];
-        (void) close(childpipe[1]); //close write side of pipe
-
-        while(read(childpipe[0], buffer, PIPE_BUF) > 0) {
-            (void) write(fd[1], buffer, PIPE_BUF);
-
-        }
-
-        (void) wait(&status);
-
-    }
-    else {
+    int empid = fork(); 
+    switch(empid) {
+    case -1:
         bail_out(EXIT_FAILURE, "Error forking");
-    }
-
-
-   /* while(1) {
-        if(s == r) {
-            r = begin + rand()%(duration+1);
-            
+        break;
+    case 0:
+        if(execlp(emergency, emergency, NULL) == -1) {
+            bail_out(EXIT_FAILURE, "Executing %s failed", emergency);
         }
-
-        printf("%d", s);
-        sleep(1);
-        s++;
-    }*/
+        break;
+    default: 
+        (void)wait(&status);
+        if(WIFEXITED(status)) {
+            return WEXITSTATUS(status);
+        }
+        else {
+            bail_out(EXIT_FAILURE, "%s did not terminate normally", emergency);
+        }
+    }
+    return EXIT_ERROR;
 }

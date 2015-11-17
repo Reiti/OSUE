@@ -14,9 +14,9 @@ int main(int argc, char *argv[])
     srand(time(NULL));
     r = rand()%3;
     if(r == 2) {
-        (void)printf("SHUTDOWN COMPLETED");
+        (void)printf("SHUTDOWN COMPLETED\n");
         return EXIT_SUCCESS;
     }
-    (void)printf("KaBOOM!");
+    (void)printf("KaBOOM!\n");
     return EXIT_FAILURE;
 }
