@@ -21,6 +21,7 @@
 /*Buffersize for pipe*/
 #define PIPE_BUF 1 
 #define EXIT_ERROR 13 
+#define EXIT_SIGNAL 15
 /*program name*/
 static const char *program_name = "schedule";
 
@@ -29,6 +30,10 @@ static int fd[2];
 
 /*file descriptor for logfile*/
 static FILE *file;
+
+
+/*tells the program to exit gracefully if signal was caught*/
+volatile sig_atomic_t quit = 0;
 
 /**
   *Credit to OSUE team
@@ -62,6 +67,16 @@ static void usage(void);
   **/
 static int schedule(int begin, int duration, char *program, char *emergency);
 
+/**
+  *@brief Signal handler, exits the program gracefully if SIGINT or SIGTERM are received
+  */
+static void handle_signal(int signal);
+
+/**
+  *@brief frees all allocated resources
+  */
+static void free_resources(void);
+
 int main(int argc, char *argv[])
 {
     int opt_s = 0;
@@ -72,6 +87,20 @@ int main(int argc, char *argv[])
     char *emergency;
     char *logfile;
     int c;
+    const int signals[] = {SIGINT, SIGTERM};
+    struct sigaction ac;
+
+    ac.sa_handler = handle_signal;
+    ac.sa_flags = 0;
+    if(sigfillset(&ac.sa_mask)<0) {
+        bail_out(EXIT_FAILURE, "sigfillset");
+    }
+    for(int i=0; i < 2; i++) {
+        if(sigaction(signals[i], &ac, NULL) < 0) {
+            bail_out(EXIT_FAILURE, "sigaction");
+        }
+    }
+
     if(argc > 0) {
         program_name = argv[0];
     }
@@ -148,9 +177,11 @@ int main(int argc, char *argv[])
         char *message;
        
         if(rval == EXIT_SUCCESS) {
-            message = "EMERGENCY SHUTDOWN SUCCESSFUL!";
+            message = "EMERGENCY SHUTDOWN SUCCESSFUL!\n";
         } else if(rval == EXIT_FAILURE) {
-            message = "EMERGENCY SHUTDOWN FAILED!";
+            message = "EMERGENCY SHUTDOWN FAILED!\n";
+        } else if(rval == EXIT_SIGNAL) {
+            message = "USER INITIATED SHUTDOWN COMPLETE\n";
         } else {
             bail_out(EXIT_FAILURE, "Child did not terminate normally");
         }
@@ -158,10 +189,20 @@ int main(int argc, char *argv[])
         if(fputs(message, file) == EOF) {
             bail_out(EXIT_FAILURE, "Error writing to logfile");
         }
-        close(fd[0]); //close reading side, because we are done
-        fclose(file);
+        free_resources();
         return EXIT_SUCCESS;
     }
+}
+
+static void free_resources() 
+{
+    (void)fclose(file);
+    (void)close(fd[0]);
+    (void)close(fd[1]);
+}
+static void handle_signal(int signal)
+{
+    quit = 1;
 }
 
 static void bail_out(int exitcode, const char *fmt, ...)
@@ -178,7 +219,7 @@ static void bail_out(int exitcode, const char *fmt, ...)
         (void) fprintf(stderr, ": %s", strerror(errno));
     }
     (void) fprintf(stderr, "\n");
-
+    free_resources();
     exit(exitcode);
 }
 
@@ -202,14 +243,13 @@ static int schedule(int begin, int duration, char *program, char *emergency)
 {
     srand(time(NULL));
     int r = begin + rand()%(duration+1);
-
     int status;
-    int rval;
+    int rval=0;
 
     (void) close(fd[0]); //close read side of pipe
   
-    while(rval != EXIT_FAILURE) {
-        sleep(r);
+    while(!quit && rval != EXIT_FAILURE) {
+        (void)sleep(r);
         r = begin + rand()%(duration+1);
         int pid = fork();
         switch(pid) {
@@ -220,7 +260,7 @@ static int schedule(int begin, int duration, char *program, char *emergency)
             if(dup2(fd[1], fileno(stdout)) == -1) {
                 bail_out(EXIT_FAILURE, "dup failed");
             }
-            close(fd[1]);
+           
             if(execlp(program, program, NULL) == -1) {
                 bail_out(EXIT_FAILURE, "Executing %s failed", program);            
             }
@@ -236,7 +276,10 @@ static int schedule(int begin, int duration, char *program, char *emergency)
             break;
         }
     }
-
+    if(quit != 0) {
+        return EXIT_SIGNAL;
+    }
+    (void)close(fd[1]);
     int empid = fork(); 
     switch(empid) {
     case -1:
