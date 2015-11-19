@@ -1,5 +1,5 @@
 #Author: Michael Reitgruber
-#Mastermind
+#random scheduler
 
 CC = gcc
 DEFS = -D_XOPEN_SOURCE=500 -D_BSD_SOURCE
