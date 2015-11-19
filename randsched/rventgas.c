@@ -11,6 +11,10 @@
 
 int main(int argc, char *argv[])
 {
+    if(argc > 1) {
+        fprintf(stderr, "Usage: %s\n", argv[0]);
+        return EXIT_FAILURE;
+    }
     int r = 0;
     srand(time(NULL));
     r = rand()%7;

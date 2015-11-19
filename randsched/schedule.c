@@ -20,8 +20,19 @@
 
 /*Buffersize for pipe*/
 #define PIPE_BUF 1 
+
+/*Return code for unexpected error*/
 #define EXIT_ERROR 13 
+
+/*Return code if exit by signal*/
 #define EXIT_SIGNAL 15
+
+/*Index of the read side of the pipe in the fd array*/
+#define PIPE_READ 0
+
+/*Index of the write side of the pipe in fd array*/
+#define PIPE_WRITE 1
+
 /*program name*/
 static const char *program_name = "schedule";
 
@@ -35,7 +46,7 @@ static FILE *file;
 /*tells the program to exit gracefully if signal was caught*/
 volatile sig_atomic_t quit = 0;
 
-/**
+/**bail_out
   *Credit to OSUE team
   *@brief terminate program on program error
   *@param exitcode exit code
@@ -43,14 +54,14 @@ volatile sig_atomic_t quit = 0;
   */
 static void bail_out(int exitcode, const char *fmt, ...);
 
-/**
+/**parse_int
   *@brief Parses a given string to an integer
   *@param string The string to be parsed
   *@return The parsed integer, or -1 on failure
   */
 static int parse_int(char *string);
 
-/**
+/**usage
   *@brief Prints correct usage of program to stderr
   */
 static void usage(void);
@@ -58,7 +69,7 @@ static void usage(void);
 
 /**
   *@brief The procedure representing the scheduling childprocess
-  *@detail Schedules the execution of program every begin to (begin + duration) seconds
+  *@detail Schedules the execution of program every begin to (begin + duration) seconds, uses the global variables fd (for the pipe) and file (file pointer for the logfile)
   *@param begin Beginning time of the execution window in seconds
   *@param duration Length of the execution window in seconds
   *@param program The program to be executed
@@ -67,12 +78,13 @@ static void usage(void);
   **/
 static int schedule(int begin, int duration, char *program, char *emergency);
 
-/**
+/**handle_signal
   *@brief Signal handler, exits the program gracefully if SIGINT or SIGTERM are received
+  *@param signal The received signal
   */
 static void handle_signal(int signal);
 
-/**
+/**free_resources
   *@brief frees all allocated resources
   */
 static void free_resources(void);
@@ -158,14 +170,14 @@ int main(int argc, char *argv[])
         return schedule(begin, duration, program, emergency);
     default:
         file = fopen(logfile, "a+");
-        (void) close(fd[1]); //close writing side of pipe
+        (void) close(fd[PIPE_WRITE]); //close writing side of pipe
 
-        while(read(fd[0], buffer, PIPE_BUF) > 0) {
+        while(read(fd[PIPE_READ], buffer, PIPE_BUF) > 0) {
            (void) write(fileno(stdout), buffer, PIPE_BUF);
            (void) write(fileno(file), buffer, PIPE_BUF);
         }
 
-        wait(&status);
+        (void) wait(&status);
 
         if(WIFEXITED(status)) {
             rval = WEXITSTATUS(status);
@@ -197,8 +209,8 @@ int main(int argc, char *argv[])
 static void free_resources() 
 {
     (void)fclose(file);
-    (void)close(fd[0]);
-    (void)close(fd[1]);
+    (void)close(fd[PIPE_READ]);
+    (void)close(fd[PIPE_WRITE]);
 }
 static void handle_signal(int signal)
 {
@@ -246,7 +258,7 @@ static int schedule(int begin, int duration, char *program, char *emergency)
     int status;
     int rval=0;
 
-    (void) close(fd[0]); //close read side of pipe
+    (void) close(fd[PIPE_READ]); //close read side of pipe
   
     while(!quit && rval != EXIT_FAILURE) {
         (void)sleep(r);
@@ -257,7 +269,7 @@ static int schedule(int begin, int duration, char *program, char *emergency)
             bail_out(EXIT_FAILURE, "Error forking");
             break;
         case 0:
-            if(dup2(fd[1], fileno(stdout)) == -1) {
+            if(dup2(fd[PIPE_WRITE], fileno(stdout)) == -1) {
                 bail_out(EXIT_FAILURE, "dup failed");
             }
            
@@ -279,7 +291,7 @@ static int schedule(int begin, int duration, char *program, char *emergency)
     if(quit != 0) {
         return EXIT_SIGNAL;
     }
-    (void)close(fd[1]);
+    (void)close(fd[PIPE_WRITE]);
     int empid = fork(); 
     switch(empid) {
     case -1:
