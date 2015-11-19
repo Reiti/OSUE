@@ -11,9 +11,15 @@ SCHEDOBJECTS = schedule.o
 
 all: schedule rventgas rshutdown
 
-sched: $(SCHEDOBJECTS)
+schedule: $(SCHEDOBJECTS)
 	$(CC) $(LDFLAGS) -o $@ $^
-
+	
+rventgas: rventgas.o
+	$(CC) $(LDFLAGS) -o $@ $^
+	
+rshutdown: rshutdown.o
+	$(CC) $(LDFLAGS) -o $@ $^
+	
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
