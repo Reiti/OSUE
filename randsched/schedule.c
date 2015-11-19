@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
         } else {
             bail_out(EXIT_FAILURE, "Child did not terminate normally");
         }
-        (void)printf(message);
+        (void)printf("%s", message);
         if(fputs(message, file) == EOF) {
             bail_out(EXIT_FAILURE, "Error writing to logfile");
         }
