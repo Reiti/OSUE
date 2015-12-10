@@ -11,15 +11,23 @@
 #define PLAY 1
 #define CONNECT 2
 #define DISCONNECT 3
-#define SHUTDOWN 4
+#define NEW 4
+#define LOST 5
+#define WON 6
+#define NO_MORE_WORDS 7
+#define SIGDC 8
+#define WORD_LENGTH 64
 
 struct comm {
     int rtype;
+    int terminate; //only written by server, read by client
     int cno;
-    int guess;
+    int wins;
+    int losses;
+    char guess;
     int mistakes;
-    int guessed_letters[26];
-    char *word;
+    char guessed_letters[26];
+    char word[WORD_LENGTH];
 };
 
 

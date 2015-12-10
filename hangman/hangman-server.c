@@ -27,13 +27,18 @@ typedef struct {
     int cno;
     int mistakes;
     int used_words;
-    char *current_word; 
-    int guessed_letters[26];
+    int wins;
+    int losses;
+    char current_word[WORD_LENGTH]; 
+    char guessed_letters[26];
 }client; //structure which holds client information
 
 static client **client_list = NULL; //list of connected clients
 static int connected_clients = 0; //number of connected clients
 static int hi_client_number=0; //current highest client number
+
+static char **word_list = NULL; //list of words available for play
+static int words = 0; //number of words
 
 static int shmfd = -1; //shared memory file descriptor
 static const char *progname = "hangman-server"; //name of the program
@@ -99,12 +104,120 @@ static void cwait(sem_t *sem);
   */
 static void cpost(sem_t *sem);
 
+/**
+  * @brief frees all stored clients
+  */
+static void free_client_list(void);
+
+/**
+  * @brief frees the word list
+  */
+static void free_word_list(void);
+
+/**
+  * @brief adds a word to the wordlist
+  * @param word the word to be added
+  */
+static void add_word(char *word, int len);
+
+/**
+  * @brief Signal handler, gracefully exits the program on SIGINT or SIGTERM
+  * @param signal The received signal
+  */
+static void handle_signal(int signal);
+
+/**
+  * @brief Prepares the shared memory for communication with the client
+  * @param client The client currently communicating with the server
+  */
+static void prepare_mem(client *c);
+
+/**
+  * @brief checks if a guessed letter is in the clients word;
+  * @param guess the guessed letter
+  * @param c the client
+  * @return 1 if letter is in the word, 0 else
+  */
+static int valid(char guess, client *c);
+
+/**
+  * @brief reveals part of the word
+  * @param rword the word to reveal
+  * @param cword the word to guess
+  * @param letters the already guessed letters
+  */
+static int reveal(char *cword, char *letters);
+
+/**
+  * @brief checks if the guessed_letters array contains a letter
+  * @param letter the letter to check for
+  * @param arr the array to go through
+  * @param length the array length
+  */
+static int contains(char letter, char *arr);
+
 int main(int argc, char *argv[])
-{ 
+{
+    const int signals[] = {SIGINT, SIGTERM};
+    struct sigaction ac;
+
+    ac.sa_handler = handle_signal;
+    ac.sa_flags = 0;
+    if(sigfillset(&ac.sa_mask) <0) {
+        bail_out(EXIT_FAILURE, "sigfillset");
+    }
+
+    for(int i=0; i<2; i++) {
+        if(sigaction(signals[i], &ac, NULL) < 0) {
+            bail_out(EXIT_FAILURE, "sigaction");
+        }
+    }
+
     if(argc > 0) {
         progname = argv[0];
     }
+
+    int max_length = 0;
+    FILE *f;
+    if(argc == 2) {
+        f = fopen(argv[1], "r");
+        if(f == NULL) {
+            bail_out(EXIT_FAILURE, "Invalid input file");
+        }
+    }
+    else if(argc == 1) {
+        f = stdin;
+    }
+    else {
+        fprintf(stderr, "Usage: %s: [input_file]", progname);
+        exit(EXIT_FAILURE);
+    }
+
+
+    int read=0;
+    char *line = NULL;
+    size_t len=0;
+    while((read = getline(&line, &len, f)) != -1) {
+        if(read > max_length) {
+            max_length = read;
+            if(line[read-1] == '\n') {
+                max_length --; //don't count \n
+            }
+        }
+        if(line[read-1] == '\n') {
+            line[read-1] = '\0'; //remove trailing \n
+        }
+        add_word(line, read); 
+    }
+
+    if(argc == 2) { //only close if it's a file, don't close stdin
+        fclose(f);
+    }
+    if(line)
+        free(line);
     
+
+
     if(atexit(free_resources) != 0) {
         bail_out(EXIT_FAILURE, "Error setting cleanup function on exit");
     }
@@ -115,6 +228,8 @@ int main(int argc, char *argv[])
           
     while(!want_quit) { 
         cwait(sem_serv);
+       // if(errno == EINTR) continue;
+
         switch(shared->rtype) {
         case CONNECT:
             c = create_client(hi_client_number);
@@ -122,12 +237,64 @@ int main(int argc, char *argv[])
             hi_client_number++;
             add_client(c);
             cpost(sem_comm);
+            cwait(sem_serv);
+           // if(errno == EINTR) continue;
             break;
         case DISCONNECT:
             remove_client(shared->cno);
             break;
+        case NEW:
+            c = find_client(shared->cno);
+            if(c->used_words == words) {
+                shared->rtype = NO_MORE_WORDS;
+                cpost(sem_comm);
+                remove_client(shared->cno);
+                break;
+            }
+            (void)printf("\nClient %d requests a new game!\n", shared->cno);
+            fflush(stdout);
+            for(int i=0; i<26; i++) {
+                c->guessed_letters[i] = 0;
+            }
+            (void) strcpy(c->current_word, word_list[c->used_words]);
+            c->used_words++;
+            c->mistakes = 0;
+            break;
         case PLAY:
-            //TODO: Insert play logic here;
+            
+           
+            c = find_client(shared->cno);
+            prepare_mem(c);
+            (void)strcpy(shared->word, c->current_word);
+
+     
+          //  if(errno == EINTR) continue;
+            char guess = (char)toupper(shared->guess); 
+            (void)printf("Received guess: %d :=> %c, %d, %d\n", c->cno, guess,guess-'A', c->guessed_letters[guess-'A']);
+            fflush(stdout);
+            c->guessed_letters[guess-'A'] = 1; //index of guessed letter in alphabet
+            
+            if(valid(guess, c)) {
+               printf("Guess was valid!\n");
+               int done = reveal(c->current_word, c->guessed_letters);
+               if(done == 1) {
+                   shared->rtype = WON;
+                   c->wins++;
+               }
+            }
+            else {
+                if(c->mistakes == 8) {
+                    shared->rtype = LOST;     
+                     c->losses++;
+                }
+
+                c->mistakes++;
+                (void)reveal(c->current_word, c->guessed_letters);
+            }
+            
+            prepare_mem(c);
+            cpost(sem_comm);
+           
             break;
         default:
             assert(0);
@@ -142,7 +309,9 @@ int main(int argc, char *argv[])
 
 static void cwait(sem_t *sem) {
     if(sem_wait(sem) == -1) {
-        bail_out(EXIT_FAILURE, "Error waiting on semaphore");
+        if(errno != EINTR) {
+            bail_out(EXIT_FAILURE, "Error waiting on semaphore");
+        }
     }
 }
 
@@ -171,6 +340,13 @@ static void bail_out(int exitcode, const char *fmt, ...)
 }
 
 static void free_resources() {
+    shared->terminate = 1;
+    while(connected_clients>0) {
+        cwait(sem_serv);
+        remove_client(shared->cno);
+    }
+    free_word_list();
+    free_client_list();
     if(munmap(shared, sizeof *shared) == -1) {
         (void) fprintf(stderr, "Error unmapping shared memory");
     }
@@ -202,7 +378,8 @@ client *create_client(int client_number)
     newC->cno=client_number;
     newC->mistakes = 0;
     newC->used_words = 0;
-    newC->current_word = NULL;
+    newC->wins = 0;
+    newC->losses = 0;
     for(int i=0; i<26; i++) {
         newC->guessed_letters[i] = 0;
     }
@@ -239,12 +416,14 @@ static void remove_client(int cno)
             for(int j=i; j<connected_clients-1; j++) {
                 client_list[j] = client_list[j+1];
             }
-            client **tmp = (client **)realloc(client_list, (connected_clients-1)*sizeof(client*));
-            if(tmp == NULL) {
+            printf("%d", cno);
+            fflush(stdout);
+            connected_clients--;
+            client **tmp = (client **)realloc(client_list, (connected_clients)*sizeof(client*));
+            if(tmp == NULL && connected_clients != 0) {
                 bail_out(EXIT_FAILURE, "Error shrinking client list");
             }
             client_list = tmp;
-            connected_clients--;
             break;
         }
     }
@@ -290,4 +469,99 @@ static void allocate_resources()
     if(sem_comm == SEM_FAILED) {
         bail_out(EXIT_FAILURE, "Error creating semaphore %s", SEM_COMM_NAME);
     }
+    shared->terminate = 0;
+}
+
+static void add_word(char *word, int len)
+{
+    char **tmp = (char**)realloc(word_list, (words+1)*sizeof(char*));
+    if(tmp == NULL) {
+        bail_out(EXIT_FAILURE, "Error extending word list");
+    }
+    word_list = tmp;
+    word_list[words] = (char *)malloc(len*sizeof(char));
+    strncpy(word_list[words], word, len);
+    words++;
+}
+
+static void free_word_list()
+{
+    for(int i=0; i<words; i++) {
+        if(word_list[i] != NULL) {
+            free(word_list[i]);
+        }
+    }
+    free(word_list);
+    words = 0;
+}
+
+static void free_client_list() 
+{
+    for(int i=0; i<connected_clients; i++) {
+        if(client_list[i] != NULL) {
+            free(client_list[i]);
+        }
+    }
+    free(client_list);
+    connected_clients = 0;
+}
+
+static void handle_signal(int signal)
+{
+    want_quit = 1;
+}
+
+static void prepare_mem(client *c)
+{
+    shared->mistakes = c->mistakes;
+    shared->wins = c->wins;
+    shared->losses = c->losses;
+    for(int i=0; i<26; i++) {
+        shared->guessed_letters[i] = c->guessed_letters[i];
+    }
+
+}
+
+static int valid(char guess, client *c)
+{
+    for(int i=0; i<WORD_LENGTH; i++) {
+        if(c->current_word[i] == '\0')
+            break;
+        if(c->current_word[i] == guess) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int contains(char letter, char *arr)
+{
+
+    if(arr[letter-'A'] == 1) {
+        return 1;
+    }
+    return 0;  
+}
+
+static int reveal(char *cword, char *letters)
+{
+    int won = 1;
+    for(int i=0; i<WORD_LENGTH; i++) {
+        if(cword[i] == '\0') {
+            break;
+        }
+        if(contains(cword[i], letters)) {
+            shared->word[i] = cword[i]; 
+        }
+        else {
+            if(cword[i] == ' ') {
+                shared->word[i] = ' ';
+            }
+            else {
+                won = 0;
+                shared->word[i] = '_';
+            }
+        }
+    }
+    return won;
 }
