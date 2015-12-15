@@ -220,8 +220,9 @@ int main(int argc, char *argv[])
         if(line[read-1] == '\n') {
             line[read-1] = '\0'; //remove trailing \n
         }
-        
-        add_word(filter(line, read)); 
+        if(strlen(line) == 0)
+            continue;
+        add_word(filter(line, strlen(line)));
     }
     if(words == 0) {
         bail_out(EXIT_FAILURE, "Use at least one word");

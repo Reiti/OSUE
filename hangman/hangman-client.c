@@ -151,23 +151,20 @@ int main(int argc, char *argv[])
             if(c != '\n') {
                (void)printf("\nEnter next character: ");
             }
-            c = getchar();
+            c = fgetc(stdin);
             if(want_quit)
                 break;
             fflush(stdin);
             if(c == '\n')
                 continue;
-            int t = getchar();
-            fflush(stdin);
-            if(t != '\n') {
-                (void)printf("\nOnly one letter per turn!\n");
-                continue;
-            }
-            
+
+            int t;
+            while((t = fgetc(stdin)!='\n')); 
+
             if(valid(c, guessed_letters)) {
                 break;
             }
-            (void) printf("\nInvalid letter\n");
+            (void) printf("\nInvalid input (only 1 ascii letter per turn)\n");
             fflush(stdout);
         }while(!want_quit);
 
