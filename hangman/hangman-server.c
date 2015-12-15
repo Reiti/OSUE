@@ -85,7 +85,7 @@ static void remove_client(int cno);
   * @brief creates a new client, to be stored in the client list
   * @param client_number The number of the client
   */
-client *create_client(int client_number);
+static client *create_client(int client_number);
 
 /**
   * @brief allocates all necessary resources
@@ -118,7 +118,7 @@ static void free_word_list(void);
   * @brief adds a word to the wordlist
   * @param word the word to be added
   */
-static void add_word(char *word, int len);
+static void add_word(char *word);
 
 /**
   * @brief Signal handler, gracefully exits the program on SIGINT or SIGTERM
@@ -155,6 +155,14 @@ static int reveal(char *cword, char *letters);
   * @param length the array length
   */
 static int contains(char letter, char *arr);
+
+/**
+  * @brief filters non-letter (and non-space) characters out of words
+  * @param word the word to filter
+  * @param length the length of the word to filter
+  * @return a pointer to the filtered string
+  */
+static char *filter(char *word, int length);
 
 int main(int argc, char *argv[])
 {
@@ -207,7 +215,8 @@ int main(int argc, char *argv[])
         if(line[read-1] == '\n') {
             line[read-1] = '\0'; //remove trailing \n
         }
-        add_word(line, read); 
+        
+        add_word(filter(line, read)); 
     }
 
     if(argc == 2) { //only close if it's a file, don't close stdin
@@ -228,7 +237,7 @@ int main(int argc, char *argv[])
           
     while(!want_quit) { 
         cwait(sem_serv);
-       // if(errno == EINTR) continue;
+        if(errno == EINTR) continue;
 
         switch(shared->rtype) {
         case CONNECT:
@@ -238,7 +247,7 @@ int main(int argc, char *argv[])
             add_client(c);
             cpost(sem_comm);
             cwait(sem_serv);
-           // if(errno == EINTR) continue;
+            if(errno == EINTR) continue;
             break;
         case DISCONNECT:
             remove_client(shared->cno);
@@ -259,16 +268,12 @@ int main(int argc, char *argv[])
             (void) strcpy(c->current_word, word_list[c->used_words]);
             c->used_words++;
             c->mistakes = 0;
+            cpost(sem_comm);
             break;
         case PLAY:
-            
-           
             c = find_client(shared->cno);
             prepare_mem(c);
             (void)strcpy(shared->word, c->current_word);
-
-     
-          //  if(errno == EINTR) continue;
             char guess = (char)toupper(shared->guess); 
             (void)printf("Received guess: %d :=> %c, %d, %d\n", c->cno, guess,guess-'A', c->guessed_letters[guess-'A']);
             fflush(stdout);
@@ -307,6 +312,27 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+
+static char *filter(char *line, int length){
+    int valids = 0;
+    char *filtered = NULL;
+    for(int i=0; i<length; i++) {
+        if((toupper(line[i])>='A' && toupper(line[i])<='Z') || line[i] == ' ') {
+            valids ++;
+        }
+    }
+
+    filtered = (char *)malloc(sizeof(char)*valids+1);
+    int j=0;
+    for(int i=0; i<length; i++) {
+        if((toupper(line[i])>='A' && toupper(line[i])<='Z') || line[i] == ' ') {
+            filtered[j] = toupper(line[i]);
+            j++;
+        }
+    }
+    filtered[j] = '\0';
+    return filtered;
+}
 static void cwait(sem_t *sem) {
     if(sem_wait(sem) == -1) {
         if(errno != EINTR) {
@@ -341,10 +367,12 @@ static void bail_out(int exitcode, const char *fmt, ...)
 
 static void free_resources() {
     shared->terminate = 1;
-    while(connected_clients>0) {
-        cwait(sem_serv);
-        remove_client(shared->cno);
-    }
+    (void)sem_post(sem_client);
+     // while(connected_clients>0) {
+     //   printf("ok");
+      //  cwait(sem_serv);
+      //  remove_client(shared->cno);
+   // }
     free_word_list();
     free_client_list();
     if(munmap(shared, sizeof *shared) == -1) {
@@ -361,6 +389,9 @@ static void free_resources() {
     if(sem_close(sem_client) == -1) {
         (void) fprintf(stderr, "Error closing semaphore %s", SEM_CLIENT_NAME);
     }
+    if(sem_close(sem_comm) == -1) {
+        (void) fprintf(stderr, "Error closing semaphore %s", SEM_COMM_NAME);
+    }
     if(sem_unlink(SEM_COMM_NAME) == -1) {
         (void) fprintf(stderr, "Error unlinking semaphore %s", SEM_COMM_NAME);
     }
@@ -372,7 +403,7 @@ static void free_resources() {
     }
 }
 
-client *create_client(int client_number)
+static client *create_client(int client_number)
 {
     client *newC = (client *)malloc(sizeof(client));
     newC->cno=client_number;
@@ -472,15 +503,14 @@ static void allocate_resources()
     shared->terminate = 0;
 }
 
-static void add_word(char *word, int len)
+static void add_word(char *word)
 {
     char **tmp = (char**)realloc(word_list, (words+1)*sizeof(char*));
     if(tmp == NULL) {
         bail_out(EXIT_FAILURE, "Error extending word list");
     }
     word_list = tmp;
-    word_list[words] = (char *)malloc(len*sizeof(char));
-    strncpy(word_list[words], word, len);
+    word_list[words] = word; 
     words++;
 }
 

@@ -19,7 +19,7 @@
 #define WORD_LENGTH 64
 
 struct comm {
-    int rtype;
+    int rtype;  //what kind of request we are dealing with
     int terminate; //only written by server, read by client
     int cno;
     int wins;

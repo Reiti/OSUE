@@ -86,7 +86,7 @@ static void print_letters(char *letters);
   * @param c the character in question
   * @param letters array containing guessed letter information
   */
-static int valid(char c, char *letters);
+static int valid(int c, char *letters);
 
 /**
   * @brief checks if the letter array contains a given char
@@ -144,21 +144,20 @@ int main(int argc, char *argv[])
     shared->rtype = NEW;
 
     cpost(sem_serv);
-
+    cwait(sem_comm);
     while(!want_quit) {
-
-       // if(errno == EINTR) continue;
-
-
-     //   cpost(sem_serv);
-     //   cwait(sem_comm);
-       // if(errno == EINTR) continue;
-        char c;
+        int c = 0;
         do {
-            (void)printf("\nEnter next character: ");
-            c = (char)fgetc(stdin);
+            if(c != '\n') {
+               (void)printf("\nEnter next character: ");
+            }
+            c = getchar();
+            if(want_quit)
+                break;
             fflush(stdin);
-            char t = (char) fgetc(stdin);
+            if(c == '\n')
+                continue;
+            int t = getchar();
             fflush(stdin);
             if(t != '\n') {
                 (void)printf("\nOnly one letter per turn!\n");
@@ -173,19 +172,20 @@ int main(int argc, char *argv[])
         }while(!want_quit);
 
         if(want_quit) {
-            shared->rtype = SIGDC;
+            break; 
         }
         cwait(sem_client);
+        if(errno == EINTR) continue;
 
         shared->rtype = PLAY;
         shared->cno = cno;
     
         guessed_letters[toupper(c)-'A'] = 1; //mark as already used;
-        shared->guess = c;
+        shared->guess = (char)c;
         cpost(sem_serv);
         
         cwait(sem_comm);
-       // if(errno == EINTR) continue;
+        if(errno == EINTR) continue;
        
 
         draw_hangman(shared->mistakes);
@@ -195,17 +195,18 @@ int main(int argc, char *argv[])
 
         if(shared->rtype == WON || shared->rtype == LOST) {
             if(shared->rtype == WON) {
-                (void) printf("\nGlückwunsch, du hast gewonnen!\n");
+                (void) printf("\nCongratulations, you won!\n");
             }
             else {
-                (void)printf("\nLeider verloren\n");
+                (void)printf("\nYou lost!\n");
             }
 
-            (void) printf("Aktueller Stand: Gewonnen %d, Verloren %d. Nochmal? [y/n]", shared->wins, shared->losses);
+            (void) printf("Standings: Won %d, Lost %d. Again? [y/n]", shared->wins, shared->losses);
             char c = (char)fgetc(stdin);
             (void)fgetc(stdin); //get rid of line feed
             if(tolower(c) == 'y') {
                 cwait(sem_client);
+                if(errno == EINTR) continue;
                 shared->cno = cno;
                 for(int i=0; i<26; i++) {
                     guessed_letters[i]=0;
@@ -213,6 +214,13 @@ int main(int argc, char *argv[])
        
                 shared->rtype = NEW;
                 cpost(sem_serv);
+                cwait(sem_comm);
+                if(errno == EINTR) continue;
+                if(shared->rtype==NO_MORE_WORDS) {
+                    (void)printf("\nNo words left!\n");
+                    (void)printf("Final standings: Won %d, Lost %d.\n", shared->wins, shared->losses);
+                    break;
+                }
                 continue;
             }
             else {
@@ -224,6 +232,7 @@ int main(int argc, char *argv[])
 
     /* Disconnect from server */
     cwait(sem_client);
+
     shared->cno = cno;
     shared->rtype = DISCONNECT;
     cpost(sem_serv);
@@ -238,7 +247,9 @@ static void cwait(sem_t *sem) {
         }
     }
     if(shared->terminate == 1) {
-        bail_out(EXIT_FAILURE, "Server terminated unexpectedly");
+        cpost(sem_client);
+        fprintf(stderr, "\nServer terminated unexpectedly\n");
+        exit(EXIT_SUCCESS);
     }
 }
 
@@ -316,46 +327,50 @@ static void allocate_resources()
 
 static void draw_hangman(int mistakes) 
 {
-    (void)printf("%d mistakes\n", mistakes);
-    /*
+    //(void)printf("%d mistakes\n", mistakes);
+    
     int hangman[7][5];
-    (void)memset(hangman, ' ', 7*5);
+    for(int i=0; i<5; i++) {
+        for(int j=0; j<7; j++) {
+            hangman[j][i] = ' ';
+        }
+    }
 
     switch(mistakes) {
-    case 9: hangman[5][2] = '/';
+    case 9: hangman[4][1] = '/';
     case 8:
-            hangman[7][2] = '\\';
+            hangman[6][1] = '\\';
     case 7:
-            hangman[6][3] = '|';
+            hangman[5][2] = '|';
     case 6:
-            hangman[5][4] = '\\';
+            hangman[4][3] = '\\';
     case 5:
-            hangman[7][4] = '/';
+            hangman[6][3] = '/';
     case 4:
-            hangman[6][4] = 'o';
+            hangman[5][3] = 'o';
     case 3:
-            hangman[2][5] = '|';
-            hangman[3][5] = '-';
-            hangman[4][5] = '-';
-            hangman[5][5] = '-';
-            hangman[6][5] = '|';
+            hangman[1][4] = '|';
+            hangman[2][4] = '-';
+            hangman[3][4] = '-';
+            hangman[4][4] = '-';
+            hangman[5][4] = '|';
     case 2:
-            hangman[2][4] = '|';
-            hangman[2][3] = '|';
-            hangman[2][2] = '|';
+            hangman[1][3] = '|';
+            hangman[1][2] = '|';
+            hangman[1][1] = '|';
     case 1:
-            hangman[1][1] = '/';
-            hangman[3][1] = '\\';
+            hangman[0][0] = '/';
+            hangman[2][0] = '\\';
     case 0: break;
     default: assert(0);
     }
 
     for(int i=0; i<5; i++) {
         for(int j=0; j<7; j++) {
-           (void) printf("%c", hangman[j][i]);
+           (void) printf("%c", hangman[j][4-i]);
         }
         (void) printf("\n");
-    }*/
+    }
 }
 
 static void print_letters(char *letters)
@@ -376,12 +391,12 @@ static int contains(char c, char *letters)
    return 0;
 }
 
-static int valid(char c, char *letters) 
+static int valid(int c, char *letters) 
 {
-    char u = (char) toupper(c);
+    int u =  toupper(c);
 
     if(u>='A' && u <= 'Z') {
-        if(!contains(u, letters)) {
+        if(!contains((char)u, letters)) {
             return 1;
         }
     }
