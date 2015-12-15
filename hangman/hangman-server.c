@@ -203,9 +203,14 @@ int main(int argc, char *argv[])
 
 
     int read=0;
-    char *line = NULL;
-    size_t len=0;
-    while((read = getline(&line, &len, f)) != -1) {
+    char *line = (char *)malloc(sizeof(char)*(WORD_LENGTH + 1));
+    char *point = NULL;
+    if(argc == 1) {
+        (void)printf("\nEnter words to guess line by line (quit with CTRL+D): \n");
+    }
+    while((point = fgets(line, WORD_LENGTH+1, f))!=NULL) {
+        fflush(stdin);
+        read = strlen(line);
         if(read > max_length) {
             max_length = read;
             if(line[read-1] == '\n') {
@@ -218,7 +223,10 @@ int main(int argc, char *argv[])
         
         add_word(filter(line, read)); 
     }
-
+    if(words == 0) {
+        bail_out(EXIT_FAILURE, "Use at least one word");
+    }
+    (void)printf("\nWaiting for connections\n");
     if(argc == 2) { //only close if it's a file, don't close stdin
         fclose(f);
     }
