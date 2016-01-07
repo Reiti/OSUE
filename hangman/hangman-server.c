@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
         f = stdin;
     }
     else {
-        (void) fprintf(stderr, "Usage: %s: [input_file]", progname);
+        (void) fprintf(stderr, "Usage: %s [input_file]", progname);
         exit(EXIT_FAILURE);
     }
 

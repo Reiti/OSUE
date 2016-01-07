@@ -22,7 +22,7 @@
 #include <assert.h>
 
 static int shmfd = -1;
-static const char *progname = "hangman-client"; //name of the program
+static const char *progname = "./hangman-client"; //name of the program
 static struct comm *shared; //pointer to shared memory
 static sem_t *sem_serv;
 static sem_t *sem_client;
@@ -111,11 +111,15 @@ int main(int argc, char *argv[])
             bail_out(EXIT_FAILURE, "sigaction");
         }
     }
-
+   
     if(argc > 0) {
         progname = argv[0];
     }
-
+    
+    if(argc != 1) {
+        (void) fprintf(stderr, "Usage: %s", progname);
+        exit(EXIT_FAILURE);
+    }
     if(atexit(free_resources) != 0) {
         bail_out(EXIT_FAILURE, "Error setting cleanup function on exit");
     }
