@@ -1,7 +1,7 @@
 #ifndef HANGMAN_COMMON_H
 #define HANGMAN_COMMON_H
 
-#define SHM_NAME "/hangman"
+#define SHM_NAME "/hangman_1426100"
 #define PERM (0600)
 
 #define SEM_SERV_NAME "/sem_serv"
@@ -15,7 +15,6 @@
 #define LOST 5
 #define WON 6
 #define NO_MORE_WORDS 7
-#define SIGDC 8
 #define WORD_LENGTH 64
 
 struct comm {

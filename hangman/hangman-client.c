@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
             c = fgetc(stdin);
             if(want_quit)
                 break;
-            fflush(stdin);
+            (void) fflush(stdin);
             if(c == '\n')
                 continue;
 
@@ -164,8 +164,8 @@ int main(int argc, char *argv[])
             if(valid(c, guessed_letters)) {
                 break;
             }
-            (void) printf("\nInvalid input (only 1 ascii letter per turn)\n");
-            fflush(stdout);
+            (void) printf("\nInvalid input (only 1 ascii letter per turn or letter already played)\n");
+            (void) fflush(stdout);
         }while(!want_quit);
 
         if(want_quit) {
@@ -245,7 +245,7 @@ static void cwait(sem_t *sem) {
     }
     if(shared->terminate == 1) {
         cpost(sem_client);
-        fprintf(stderr, "\nServer terminated unexpectedly\n");
+        (void) fprintf(stderr, "\nServer terminated unexpectedly\n");
         exit(EXIT_SUCCESS);
     }
 }
@@ -277,13 +277,13 @@ static void free_resources() {
         (void) fprintf(stderr, "Error unmapping shared memory");
     }
     if(sem_close(sem_serv) == -1) {
-        (void) fprintf(stderr, "Error closing semaphore %s", SEM_SERV_NAME);
+        (void) fprintf(stderr, "Error closing semaphore %s\n", SEM_SERV_NAME);
     }
     if(sem_close(sem_client) == -1) {
-        (void) fprintf(stderr, "Error closing semaphore %s", SEM_CLIENT_NAME);
+        (void) fprintf(stderr, "Error closing semaphore %s\n", SEM_CLIENT_NAME);
     }
     if(sem_close(sem_comm) == -1) {
-        (void) fprintf(stderr, "Error closing semaphore %s", SEM_COMM_NAME);
+        (void) fprintf(stderr, "Error closing semaphore %s\n", SEM_COMM_NAME);
     }
 }
 
@@ -291,6 +291,24 @@ static void allocate_resources()
 {
 
     shmfd = shm_open(SHM_NAME, O_RDWR, 0);
+
+    sem_serv = sem_open(SEM_SERV_NAME, 0);
+    if(sem_serv == SEM_FAILED) {
+        if(errno == ENOENT) {
+            (void) fprintf(stderr, "Server not running\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    
+    sem_client = sem_open(SEM_CLIENT_NAME, 0);
+    if(sem_client == SEM_FAILED) {
+        bail_out(EXIT_FAILURE, "Error opening semaphore %s", SEM_CLIENT_NAME);
+    }
+
+    sem_comm = sem_open(SEM_COMM_NAME, 0);
+    if(sem_comm == SEM_FAILED) {
+        bail_out(EXIT_FAILURE, "Error opening semaphore %s", SEM_COMM_NAME);
+    }
 
     if(shmfd == -1) {
         bail_out(EXIT_FAILURE, "Error accessing shared memory");
@@ -306,22 +324,7 @@ static void allocate_resources()
         bail_out(EXIT_FAILURE, "Error closing shared memory file descriptor");
     }
     
-    sem_serv = sem_open(SEM_SERV_NAME, 0);
-    if(sem_serv == SEM_FAILED) {
-        bail_out(EXIT_FAILURE, "Error opening semaphore %s", SEM_SERV_NAME);
-    }
-    
-    sem_client = sem_open(SEM_CLIENT_NAME, 0);
-    if(sem_client == SEM_FAILED) {
-        bail_out(EXIT_FAILURE, "Error opening semaphore %s", SEM_CLIENT_NAME);
-    }
-
-    sem_comm = sem_open(SEM_COMM_NAME, 0);
-    if(sem_comm == SEM_FAILED) {
-        bail_out(EXIT_FAILURE, "Error opening semaphore %s", SEM_COMM_NAME);
-    }
 }
-
 static void draw_hangman(int mistakes) 
 {
     //(void)printf("%d mistakes\n", mistakes);

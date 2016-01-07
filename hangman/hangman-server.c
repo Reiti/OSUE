@@ -164,6 +164,13 @@ static int contains(char letter, char *arr);
   */
 static char *filter(char *word, int length);
 
+/**
+  * @brief Main entry point for the program, handles game logic
+  * @detail First reads words to guess from either a file or stdin, then handles request of clients in the main game loop
+  * @param argc number of arguments
+  * @param argv list of arguments
+  * @return EXIT_FAILURE on error, EXIT_SUCCESS on successfull termination
+  */
 int main(int argc, char *argv[])
 {
     const int signals[] = {SIGINT, SIGTERM};
@@ -197,7 +204,7 @@ int main(int argc, char *argv[])
         f = stdin;
     }
     else {
-        fprintf(stderr, "Usage: %s: [input_file]", progname);
+        (void) fprintf(stderr, "Usage: %s: [input_file]", progname);
         exit(EXIT_FAILURE);
     }
 
@@ -206,10 +213,10 @@ int main(int argc, char *argv[])
     char *line = (char *)malloc(sizeof(char)*(WORD_LENGTH + 1));
     char *point = NULL;
     if(argc == 1) {
-        (void)printf("\nEnter words to guess line by line (quit with CTRL+D): \n");
+        (void) printf("\nEnter words to guess line by line (quit with CTRL+D): \n");
     }
     while((point = fgets(line, WORD_LENGTH+1, f))!=NULL) {
-        fflush(stdin);
+        (void) fflush(stdin);
         read = strlen(line);
         if(read > max_length) {
             max_length = read;
@@ -227,9 +234,9 @@ int main(int argc, char *argv[])
     if(words == 0) {
         bail_out(EXIT_FAILURE, "Use at least one word");
     }
-    (void)printf("\nWaiting for connections\n");
+    (void) printf("\nWaiting for connections\n");
     if(argc == 2) { //only close if it's a file, don't close stdin
-        fclose(f);
+        (void) fclose(f);
     }
     if(line)
         free(line);
@@ -242,7 +249,6 @@ int main(int argc, char *argv[])
 
     allocate_resources();
     client *c;
-    
           
     while(!want_quit) { 
         cwait(sem_serv);
@@ -269,8 +275,6 @@ int main(int argc, char *argv[])
                 remove_client(shared->cno);
                 break;
             }
-            (void)printf("\nClient %d requests a new game!\n", shared->cno);
-            fflush(stdout);
             for(int i=0; i<26; i++) {
                 c->guessed_letters[i] = 0;
             }
@@ -282,14 +286,11 @@ int main(int argc, char *argv[])
         case PLAY:
             c = find_client(shared->cno);
             prepare_mem(c);
-            (void)strcpy(shared->word, c->current_word);
+            (void) strcpy(shared->word, c->current_word);
             char guess = (char)toupper(shared->guess); 
-            (void)printf("Received guess: %d :=> %c, %d, %d\n", c->cno, guess,guess-'A', c->guessed_letters[guess-'A']);
-            fflush(stdout);
             c->guessed_letters[guess-'A'] = 1; //index of guessed letter in alphabet
             
             if(valid(guess, c)) {
-               printf("Guess was valid!\n");
                int done = reveal(c->current_word, c->guessed_letters);
                if(done == 1) {
                    shared->rtype = WON;
@@ -303,7 +304,7 @@ int main(int argc, char *argv[])
                 }
 
                 c->mistakes++;
-                (void)reveal(c->current_word, c->guessed_letters);
+                (void) reveal(c->current_word, c->guessed_letters);
             }
             
             prepare_mem(c);
@@ -332,6 +333,9 @@ static char *filter(char *line, int length){
     }
 
     filtered = (char *)malloc(sizeof(char)*valids+1);
+    if(filtered == NULL) {
+        bail_out(EXIT_FAILURE, "Error allocating space for filtered string");
+    }
     int j=0;
     for(int i=0; i<length; i++) {
         if((toupper(line[i])>='A' && toupper(line[i])<='Z') || line[i] == ' ') {
@@ -377,11 +381,6 @@ static void bail_out(int exitcode, const char *fmt, ...)
 static void free_resources() {
     shared->terminate = 1;
     (void)sem_post(sem_client);
-     // while(connected_clients>0) {
-     //   printf("ok");
-      //  cwait(sem_serv);
-      //  remove_client(shared->cno);
-   // }
     free_word_list();
     free_client_list();
     if(munmap(shared, sizeof *shared) == -1) {
@@ -415,6 +414,9 @@ static void free_resources() {
 static client *create_client(int client_number)
 {
     client *newC = (client *)malloc(sizeof(client));
+    if(newC == NULL) {
+        bail_out(EXIT_FAILURE, "Error allocating memory for client data");
+    }
     newC->cno=client_number;
     newC->mistakes = 0;
     newC->used_words = 0;
@@ -456,8 +458,6 @@ static void remove_client(int cno)
             for(int j=i; j<connected_clients-1; j++) {
                 client_list[j] = client_list[j+1];
             }
-            printf("%d", cno);
-            fflush(stdout);
             connected_clients--;
             client **tmp = (client **)realloc(client_list, (connected_clients)*sizeof(client*));
             if(tmp == NULL && connected_clients != 0) {
